@@ -6,7 +6,7 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Tag, Film, Music, Gamepad, FolderOpen, ChevronLeft, ChevronRight, Sliders, Shuffle, Layers } from 'lucide-react';
+import { Tag, Film, Music, Gamepad, FolderOpen, ChevronLeft, ChevronRight, Sliders, Shuffle, Layers, DownloadCloud, Flame } from 'lucide-react';
 
 export function HUDOverlay({
   currentTag,
@@ -23,12 +23,14 @@ export function HUDOverlay({
   gamepadInfo,
   isHudVisible,
   isMediaMuted,
+  isPlaying = true,
   playbackMode, // 'CATEGORY' | 'WEIGHTED_MIX'
   mixWeightPercentage,
   onSelectTag,
   onTogglePlaybackMode,
   onOpenTagMixer,
-  onReopenFolderPicker
+  onReopenFolderPicker,
+  onOpenRedGifsDownloader
 }) {
   const [autoHide, setAutoHide] = useState(true);
   const hideTimerRef = useRef(null);
@@ -171,6 +173,22 @@ export function HUDOverlay({
           >
             <FolderOpen size={15} />
           </button>
+
+          {/* RedGifs Downloader Button */}
+          <button 
+            className="hud-pill hud-pill-redgifs"
+            onClick={onOpenRedGifsDownloader}
+            style={{ 
+              cursor: 'pointer', 
+              background: 'rgba(244, 63, 94, 0.15)', 
+              borderColor: 'rgba(244, 63, 94, 0.4)',
+              color: '#fecdd3'
+            }}
+            title="Abrir descargador de videos RedGifs"
+          >
+            <DownloadCloud size={15} color="#f43f5e" />
+            <span style={{ fontWeight: 600 }}>Descargar RedGifs</span>
+          </button>
         </div>
 
         {/* Tag Quick Selector Container with Left/Right Scroll Arrows */}
@@ -237,10 +255,30 @@ export function HUDOverlay({
                 (Vídeo Silenciado)
               </span>
             )}
+            {!isPlaying && (
+              <span style={{ color: '#f59e0b', fontSize: '0.75rem', marginLeft: '6px', fontWeight: 600 }}>
+                ⏸ En Pausa
+              </span>
+            )}
           </div>
 
           {/* Smart Audio Mixer Status */}
           {getStatusBadge()}
+
+          {/* Intensity Rate Indicator */}
+          {currentClip && currentClip.intensity && (
+            <div 
+              className="hud-pill hud-pill-intensity"
+              style={{
+                borderColor: currentClip.intensity >= 4 ? 'rgba(244, 63, 94, 0.4)' : currentClip.intensity === 3 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)',
+                background: currentClip.intensity >= 4 ? 'rgba(244, 63, 94, 0.15)' : currentClip.intensity === 3 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)'
+              }}
+              title={`Nivel de intensidad: ${currentClip.intensity} de 5`}
+            >
+              <Flame size={15} color={currentClip.intensity >= 4 ? '#f43f5e' : currentClip.intensity === 3 ? '#f59e0b' : '#10b981'} />
+              <span>Intensidad: <strong style={{ color: '#ffffff' }}>{currentClip.intensity}/5</strong></span>
+            </div>
+          )}
         </div>
 
         <div className="hud-controls-row">

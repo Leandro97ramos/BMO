@@ -4,10 +4,10 @@
  */
 
 import React, { useState } from 'react';
-import { FolderOpen, UploadCloud, Info, AlertTriangle, Disc, Film, Sparkles } from 'lucide-react';
+import { FolderOpen, UploadCloud, Info, AlertTriangle, Disc, Film, Sparkles, DownloadCloud } from 'lucide-react';
 import { scanDirectoryHandle, scanFileInput } from '../utils/fileScanner';
 
-export function FolderPickerModal({ onScanComplete }) {
+export function FolderPickerModal({ onScanComplete, onOpenRedGifsDownloader }) {
   const [errorMsg, setErrorMsg] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -105,6 +105,15 @@ export function FolderPickerModal({ onScanComplete }) {
               style={{ display: 'none' }}
             />
           </label>
+
+          <button 
+            className="btn-redgifs-landing"
+            onClick={onOpenRedGifsDownloader}
+            type="button"
+          >
+            <DownloadCloud size={18} color="#f43f5e" />
+            <span>Descargar Videos de RedGifs</span>
+          </button>
         </div>
 
         <div className="folder-tree-guide">

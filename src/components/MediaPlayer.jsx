@@ -12,6 +12,7 @@ export function MediaPlayer({
   currentClip, 
   isPlaying, 
   isMediaMuted, 
+  clipIteration = 0,
   onVideoEnd,
   onVideoPlay,
   onVideoPause 
@@ -29,14 +30,14 @@ export function MediaPlayer({
       clearTimeout(autoSkipTimerRef.current);
       autoSkipTimerRef.current = null;
     }
-  }, [currentClip?.url]);
+  }, [currentClip?.url, clipIteration]);
 
   // Connect video element to Web Audio API Mixer on mount or source change
   useEffect(() => {
     if (videoRef.current && currentClip && currentClip.type === 'video' && !hasError) {
       audioMixer.connectVideoElement(videoRef.current);
     }
-  }, [currentClip, hasError]);
+  }, [currentClip?.url, clipIteration, hasError]);
 
   // Sync play / pause state safely
   useEffect(() => {
@@ -55,7 +56,7 @@ export function MediaPlayer({
         videoRef.current.pause();
       }
     }
-  }, [isPlaying, currentClip, hasError]);
+  }, [isPlaying, currentClip?.url, clipIteration, hasError]);
 
   // Catch Video Decoding or Format Errors (e.g. unsupported HEVC / AC3 / broken file)
   const handleVideoError = (e) => {
@@ -133,21 +134,31 @@ export function MediaPlayer({
       ) : currentClip.type === 'video' ? (
         <video
           ref={videoRef}
-          key={currentClip.url}
+          key={`${currentClip.url}_${clipIteration}`}
           src={currentClip.url}
           className="media-element"
           autoPlay={isPlaying}
           muted={isMediaMuted}
           playsInline
           loop={false}
-          onEnded={onVideoEnd}
+          onEnded={() => {
+            if (onVideoEnd) onVideoEnd();
+          }}
           onError={handleVideoError}
-          onPlay={onVideoPlay}
-          onPause={onVideoPause}
+          onPlay={() => {
+            if (onVideoPlay) onVideoPlay();
+          }}
+          onPause={(e) => {
+            // Do NOT trigger pause when the video reaches the end
+            if (e.target.ended || (e.target.duration && e.target.currentTime >= e.target.duration - 0.2)) {
+              return;
+            }
+            if (onVideoPause) onVideoPause();
+          }}
         />
       ) : (
         <img
-          key={currentClip.url}
+          key={`${currentClip.url}_${clipIteration}`}
           src={currentClip.url}
           alt={currentClip.name}
           className="media-element"

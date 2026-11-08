@@ -16,6 +16,19 @@ function getExtension(filename) {
 }
 
 /**
+ * Extract intensity rating from filename (e.g. [int-4], [intensity-3], _int5)
+ */
+export function extractIntensity(filename) {
+  if (!filename) return null;
+  const match = filename.match(/\[(?:int|intensity)-?(\d+)\]|_int(\d+)/i);
+  if (match) {
+    const val = parseInt(match[1] || match[2], 10);
+    if (!isNaN(val) && val >= 1 && val <= 10) return val;
+  }
+  return null;
+}
+
+/**
  * Scan directory using native File System Access API (showDirectoryPicker)
  */
 export async function scanDirectoryHandle(rootDirHandle) {
@@ -58,17 +71,20 @@ export async function scanDirectoryHandle(rootDirHandle) {
         tagMap.get('00_General').push({
           name: entryName,
           file,
+          handle: entryHandle,
+          folderHandle: rootDirHandle,
           url: URL.createObjectURL(file),
           type: isGif ? 'gif' : 'video',
           tagName: '00_General',
           isMusicTag: nameLower.includes('[music]') || nameLower.includes('_music'),
-          isVoiceTag: nameLower.includes('[voice]') || nameLower.includes('_voice')
+          isVoiceTag: nameLower.includes('[voice]') || nameLower.includes('_voice'),
+          intensity: extractIntensity(entryName)
         });
       }
     }
   }
 
-  return formatScanResult(tagMap, audioTracks);
+  return formatScanResult(tagMap, audioTracks, rootDirHandle);
 }
 
 /**
@@ -87,11 +103,14 @@ async function scanMediaDirectoryHandle(dirHandle, clipsArray, tagName) {
         clipsArray.push({
           name,
           file,
+          handle,
+          folderHandle: dirHandle,
           url: URL.createObjectURL(file),
           type: isGif ? 'gif' : 'video',
           tagName,
           isMusicTag: nameLower.includes('[music]') || nameLower.includes('_music'),
-          isVoiceTag: nameLower.includes('[voice]') || nameLower.includes('_voice')
+          isVoiceTag: nameLower.includes('[voice]') || nameLower.includes('_voice'),
+          intensity: extractIntensity(name)
         });
       }
     }
@@ -164,19 +183,20 @@ export function scanFileInput(fileList) {
           type: isGif ? 'gif' : 'video',
           tagName: parentFolder,
           isMusicTag: nameLower.includes('[music]') || nameLower.includes('_music'),
-          isVoiceTag: nameLower.includes('[voice]') || nameLower.includes('_voice')
+          isVoiceTag: nameLower.includes('[voice]') || nameLower.includes('_voice'),
+          intensity: extractIntensity(fileName)
         });
       }
     }
   });
 
-  return formatScanResult(tagMap, audioTracks);
+  return formatScanResult(tagMap, audioTracks, null);
 }
 
 /**
  * Format and sort final scan result
  */
-function formatScanResult(tagMap, audioTracks) {
+function formatScanResult(tagMap, audioTracks, dirHandle = null) {
   // Sort tag names alphabetically
   const sortedTagNames = Array.from(tagMap.keys()).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
@@ -194,6 +214,7 @@ function formatScanResult(tagMap, audioTracks) {
   return {
     tags,
     audioTracks,
-    totalMediaCount
+    totalMediaCount,
+    dirHandle
   };
 }

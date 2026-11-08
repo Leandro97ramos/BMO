@@ -10,9 +10,11 @@ import { TagMixerModal } from './components/TagMixerModal';
 import { MediaPlayer } from './components/MediaPlayer';
 import { SecondaryAudioPlayer } from './components/SecondaryAudioPlayer';
 import { HUDOverlay } from './components/HUDOverlay';
+import { RedGifsDownloaderModal } from './components/RedGifsDownloaderModal';
 import { useGamepad } from './hooks/useGamepad';
 import { useKeyboard } from './hooks/useKeyboard';
 import { audioMixer } from './utils/audioMixer';
+import { scanDirectoryHandle } from './utils/fileScanner';
 import { generateWeightedPlaylist, getEqualWeights } from './utils/playlistGenerator';
 
 export function App() {
@@ -29,11 +31,13 @@ export function App() {
   const [activeTagIndex, setActiveTagIndex] = useState(0);
   const [activeClipIndex, setActiveClipIndex] = useState(0);
   const [activeAudioIndex, setActiveAudioIndex] = useState(0);
+  const [clipIteration, setClipIteration] = useState(0);
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [isHudVisible, setIsHudVisible] = useState(true);
   const [isMediaMuted, setIsMediaMuted] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(true);
+  const [showRedGifsModal, setShowRedGifsModal] = useState(false);
 
   const [mixerState, setMixerState] = useState({
     mode: 'FULL',
@@ -129,10 +133,12 @@ export function App() {
 
   // Central Action Dispatcher
   const handleAction = useCallback((actionType) => {
-    if (!scanData || showFolderModal || showTagMixer) return;
+    if (!scanData || showFolderModal || showTagMixer || showRedGifsModal) return;
 
     switch (actionType) {
       case 'NEXT_VIDEO':
+        setIsPlaying(true);
+        setClipIteration((prev) => prev + 1);
         if (playbackMode === 'WEIGHTED_MIX') {
           if (weightedQueue.length > 0) {
             setQueuePointer((prev) => (prev + 1) % weightedQueue.length);
@@ -145,6 +151,8 @@ export function App() {
         break;
 
       case 'PREV_VIDEO':
+        setIsPlaying(true);
+        setClipIteration((prev) => prev + 1);
         if (playbackMode === 'WEIGHTED_MIX') {
           if (weightedQueue.length > 0) {
             setQueuePointer((prev) => (prev - 1 + weightedQueue.length) % weightedQueue.length);
@@ -157,6 +165,8 @@ export function App() {
         break;
 
       case 'NEXT_TAG':
+        setIsPlaying(true);
+        setClipIteration((prev) => prev + 1);
         if (playbackMode === 'CATEGORY' && scanData.tags && scanData.tags.length > 0) {
           setActiveTagIndex((prev) => (prev + 1) % scanData.tags.length);
           setActiveClipIndex(0); // Load first clip of that subfolder category
@@ -164,6 +174,8 @@ export function App() {
         break;
 
       case 'PREV_TAG':
+        setIsPlaying(true);
+        setClipIteration((prev) => prev + 1);
         if (playbackMode === 'CATEGORY' && scanData.tags && scanData.tags.length > 0) {
           setActiveTagIndex((prev) => (prev - 1 + scanData.tags.length) % scanData.tags.length);
           setActiveClipIndex(0); // Load first clip of that subfolder category
@@ -228,8 +240,25 @@ export function App() {
     setIsPlaying(true);
   };
 
+  // Reload active directory after downloads
+  const handleLibraryUpdated = async (dirHandle) => {
+    try {
+      if (!dirHandle) return;
+      const result = await scanDirectoryHandle(dirHandle);
+      if (result && result.tags && result.tags.length > 0) {
+        setScanData(result);
+        const defaultW = getEqualWeights(result.tags);
+        setTagWeights(prev => ({ ...defaultW, ...prev }));
+      }
+    } catch (err) {
+      console.warn("Error recargando biblioteca tras descarga de RedGifs:", err);
+    }
+  };
+
   // Video auto-advance on ended
   const handleVideoEnd = () => {
+    setIsPlaying(true);
+    setClipIteration((prev) => prev + 1);
     handleAction('NEXT_VIDEO');
   };
 
@@ -240,9 +269,8 @@ export function App() {
         currentClip={currentClip}
         isPlaying={isPlaying}
         isMediaMuted={isMediaMuted}
+        clipIteration={clipIteration}
         onVideoEnd={handleVideoEnd}
-        onVideoPlay={() => setIsPlaying(true)}
-        onVideoPause={() => setIsPlaying(false)}
       />
 
       {/* 2. Secondary Audio Track Player */}
@@ -268,16 +296,20 @@ export function App() {
           gamepadInfo={gamepadInfo}
           isHudVisible={isHudVisible}
           isMediaMuted={isMediaMuted}
+          isPlaying={isPlaying}
           playbackMode={playbackMode}
           mixWeightPercentage={activeItem ? activeItem.weightPercentage : null}
           onSelectTag={(idx) => {
             setPlaybackMode('CATEGORY');
+            setIsPlaying(true);
+            setClipIteration((prev) => prev + 1);
             setActiveTagIndex(idx);
             setActiveClipIndex(0);
           }}
           onTogglePlaybackMode={handleTogglePlaybackMode}
           onOpenTagMixer={() => setShowTagMixer(true)}
           onReopenFolderPicker={() => setShowFolderModal(true)}
+          onOpenRedGifsDownloader={() => setShowRedGifsModal(true)}
         />
       )}
 
@@ -291,9 +323,22 @@ export function App() {
         />
       )}
 
-      {/* 5. Folder Landing Modal */}
+      {/* 5. RedGifs Batch Downloader Modal */}
+      {showRedGifsModal && (
+        <RedGifsDownloaderModal
+          existingTags={scanData ? scanData.tags : []}
+          activeDirHandle={scanData ? scanData.dirHandle : null}
+          onClose={() => setShowRedGifsModal(false)}
+          onLibraryUpdated={handleLibraryUpdated}
+        />
+      )}
+
+      {/* 6. Folder Landing Modal */}
       {showFolderModal && (
-        <FolderPickerModal onScanComplete={handleScanComplete} />
+        <FolderPickerModal 
+          onScanComplete={handleScanComplete} 
+          onOpenRedGifsDownloader={() => setShowRedGifsModal(true)}
+        />
       )}
     </div>
   );
